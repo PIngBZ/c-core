@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Dreamacro/clash/common/queue"
@@ -122,8 +123,15 @@ func (p *Proxy) URLTest(ctx context.Context, url string) (delay, meanDelay uint1
 		return
 	}
 
+	if addr.NetWork == C.UDP {
+		return p.udpTest(ctx, &addr)
+	}
+	return p.tcpTest(ctx, url, &addr)
+}
+
+func (p *Proxy) tcpTest(ctx context.Context, url string, addr *C.Metadata) (delay, meanDelay uint16, err error) {
 	start := time.Now()
-	instance, err := p.DialContext(ctx, &addr)
+	instance, err := p.DialContext(ctx, addr)
 	if err != nil {
 		return
 	}
@@ -168,7 +176,43 @@ func (p *Proxy) URLTest(ctx context.Context, url string) (delay, meanDelay uint1
 	}
 	resp.Body.Close()
 	meanDelay = uint16(time.Since(start) / time.Millisecond / 2)
+	return
+}
 
+func (p *Proxy) udpTest(ctx context.Context, addr *C.Metadata) (delay, meanDelay uint16, err error) {
+	start := time.Now()
+
+	instance, err := p.ListenPacketContext(ctx, addr)
+	if err != nil {
+		return
+	}
+	defer instance.Close()
+
+	_, err = instance.WriteTo([]byte("PING"), &net.UDPAddr{IP: addr.DstIP, Port: int(addr.DstPort), Zone: ""})
+	if err != nil {
+		return
+	}
+
+	instance.SetReadDeadline(time.Now().Add(time.Second * 5))
+	_, _, err = instance.ReadFrom(make([]byte, 32))
+	if err != nil {
+		return
+	}
+
+	delay = uint16(time.Since(start) / time.Millisecond)
+
+	_, err = instance.WriteTo([]byte("PING"), &net.UDPAddr{IP: addr.DstIP, Port: int(addr.DstPort), Zone: ""})
+	if err != nil {
+		return
+	}
+
+	instance.SetReadDeadline(time.Now().Add(time.Second * 5))
+	_, _, err = instance.ReadFrom(make([]byte, 32))
+	if err != nil {
+		return delay, 0, nil
+	}
+
+	meanDelay = uint16(time.Since(start) / time.Millisecond / 2)
 	return
 }
 
@@ -182,9 +226,15 @@ func urlToMetadata(rawURL string) (addr C.Metadata, err error) {
 		return
 	}
 
+	netWork := C.TCP
+	if strings.ToLower(u.Scheme) == "udp" {
+		netWork = C.UDP
+	}
+
 	port := u.Port()
 	if port == "" {
 		switch u.Scheme {
+
 		case "https":
 			port = "443"
 		case "http":
@@ -198,6 +248,7 @@ func urlToMetadata(rawURL string) (addr C.Metadata, err error) {
 	p, _ := strconv.ParseUint(port, 10, 16)
 
 	addr = C.Metadata{
+		NetWork: netWork,
 		Host:    u.Hostname(),
 		DstIP:   nil,
 		DstPort: C.Port(p),
