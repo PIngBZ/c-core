@@ -188,7 +188,7 @@ func (p *Proxy) udpTest(ctx context.Context, addr *C.Metadata) (delay, meanDelay
 	}
 	defer instance.Close()
 
-	_, err = instance.WriteTo([]byte("PING"), &net.UDPAddr{IP: addr.DstIP, Port: int(addr.DstPort), Zone: ""})
+	_, err = instance.WriteTo([]byte("PING"), addr.UDPAddr())
 	if err != nil {
 		return
 	}
@@ -201,7 +201,7 @@ func (p *Proxy) udpTest(ctx context.Context, addr *C.Metadata) (delay, meanDelay
 
 	delay = uint16(time.Since(start) / time.Millisecond)
 
-	_, err = instance.WriteTo([]byte("PING"), &net.UDPAddr{IP: addr.DstIP, Port: int(addr.DstPort), Zone: ""})
+	_, err = instance.WriteTo([]byte("PING"), addr.UDPAddr())
 	if err != nil {
 		return
 	}
@@ -250,7 +250,7 @@ func urlToMetadata(rawURL string) (addr C.Metadata, err error) {
 	addr = C.Metadata{
 		NetWork: netWork,
 		Host:    u.Hostname(),
-		DstIP:   nil,
+		DstIP:   net.ParseIP(u.Hostname()),
 		DstPort: C.Port(p),
 	}
 	return
