@@ -14,6 +14,7 @@ import (
 	"github.com/Dreamacro/clash/common/queue"
 	"github.com/Dreamacro/clash/component/dialer"
 	C "github.com/Dreamacro/clash/constant"
+	"github.com/Dreamacro/clash/log"
 
 	"go.uber.org/atomic"
 )
@@ -184,6 +185,7 @@ func (p *Proxy) udpTest(ctx context.Context, addr *C.Metadata) (delay, meanDelay
 
 	instance, err := p.ListenPacketContext(ctx, addr)
 	if err != nil {
+		log.Debugln("udpTest %s %v", addr.RemoteAddress(), err)
 		return
 	}
 	defer instance.Close()
@@ -196,6 +198,7 @@ func (p *Proxy) udpTest(ctx context.Context, addr *C.Metadata) (delay, meanDelay
 	instance.SetReadDeadline(time.Now().Add(time.Second * 5))
 	_, _, err = instance.ReadFrom(make([]byte, 32))
 	if err != nil {
+		log.Debugln("udpTest %s %v", addr.RemoteAddress(), err)
 		return
 	}
 
@@ -209,10 +212,12 @@ func (p *Proxy) udpTest(ctx context.Context, addr *C.Metadata) (delay, meanDelay
 	instance.SetReadDeadline(time.Now().Add(time.Second * 5))
 	_, _, err = instance.ReadFrom(make([]byte, 32))
 	if err != nil {
+		log.Debugln("udpTest delay %s %d", addr.RemoteAddress(), delay)
 		return delay, 0, nil
 	}
 
 	meanDelay = uint16(time.Since(start) / time.Millisecond / 2)
+	log.Debugln("udpTest delay %s %d %d", addr.RemoteAddress(), delay, meanDelay)
 	return
 }
 
