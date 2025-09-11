@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -163,15 +164,15 @@ func WritePacket(w io.Writer, socks5Addr, payload []byte) (int, error) {
 func ReadPacket(r io.Reader, payload []byte) (net.Addr, int, int, error) {
 	addr, err := socks5.ReadAddr(r, payload)
 	if err != nil {
-		return nil, 0, 0, errors.New("read addr error")
+		return nil, 0, 0, fmt.Errorf("read addr error %v", err)
 	}
 	uAddr := addr.UDPAddr()
 	if uAddr == nil {
-		return nil, 0, 0, errors.New("parse addr error")
+		return nil, 0, 0, fmt.Errorf("parse addr error %v", err)
 	}
 
 	if _, err = io.ReadFull(r, payload[:2]); err != nil {
-		return nil, 0, 0, errors.New("read length error")
+		return nil, 0, 0, fmt.Errorf("read length error %v", err)
 	}
 
 	total := int(binary.BigEndian.Uint16(payload[:2]))
@@ -181,7 +182,7 @@ func ReadPacket(r io.Reader, payload []byte) (net.Addr, int, int, error) {
 
 	// read crlf
 	if _, err = io.ReadFull(r, payload[:2]); err != nil {
-		return nil, 0, 0, errors.New("read crlf error")
+		return nil, 0, 0, fmt.Errorf("read crlf error %v", err)
 	}
 
 	length := len(payload)
@@ -190,7 +191,7 @@ func ReadPacket(r io.Reader, payload []byte) (net.Addr, int, int, error) {
 	}
 
 	if _, err = io.ReadFull(r, payload[:length]); err != nil {
-		return nil, 0, 0, errors.New("read packet error")
+		return nil, 0, 0, fmt.Errorf("read packet error %v", err)
 	}
 
 	return uAddr, length, total - length, nil

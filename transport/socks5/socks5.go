@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/netip"
@@ -278,24 +279,24 @@ func ReadAddr(r io.Reader, b []byte) (Addr, error) {
 	}
 	_, err := io.ReadFull(r, b[:1]) // read 1st byte for address type
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read 1st byte for address type %v", err)
 	}
 
 	switch b[0] {
 	case AtypDomainName:
 		_, err = io.ReadFull(r, b[1:2]) // read 2nd byte for domain length
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read 2nd byte for address type %v", err)
 		}
 		domainLength := uint16(b[1])
 		_, err = io.ReadFull(r, b[2:2+domainLength+2])
-		return b[:1+1+domainLength+2], err
+		return b[:1+1+domainLength+2], fmt.Errorf("read addr AtypDomainName %v", err)
 	case AtypIPv4:
 		_, err = io.ReadFull(r, b[1:1+net.IPv4len+2])
-		return b[:1+net.IPv4len+2], err
+		return b[:1+net.IPv4len+2], fmt.Errorf("read addr AtypIPv4 %v", err)
 	case AtypIPv6:
 		_, err = io.ReadFull(r, b[1:1+net.IPv6len+2])
-		return b[:1+net.IPv6len+2], err
+		return b[:1+net.IPv6len+2], fmt.Errorf("read addr AtypIPv6 %v", err)
 	}
 
 	return nil, ErrAddressNotSupported

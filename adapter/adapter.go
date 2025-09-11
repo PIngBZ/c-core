@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Dreamacro/clash/common/pool"
 	"github.com/Dreamacro/clash/common/queue"
 	"github.com/Dreamacro/clash/component/dialer"
 	C "github.com/Dreamacro/clash/constant"
@@ -183,22 +184,31 @@ func (p *Proxy) tcpTest(ctx context.Context, url string, addr *C.Metadata) (dela
 func (p *Proxy) udpTest(ctx context.Context, addr *C.Metadata) (delay, meanDelay uint16, err error) {
 	start := time.Now()
 
+	if !p.SupportUDP() {
+		log.Debugln("udpTest not SupportUDP %s", p.Name())
+		err = net.UnknownNetworkError("not SupportUDP")
+		return
+	}
+
 	instance, err := p.ListenPacketContext(ctx, addr)
 	if err != nil {
-		log.Debugln("udpTest %s %v", addr.RemoteAddress(), err)
+		log.Debugln("udpTest ListenPacketContext %s %v", p.Name(), err)
 		return
 	}
 	defer instance.Close()
 
 	_, err = instance.WriteTo([]byte("PING"), addr.UDPAddr())
 	if err != nil {
+		log.Debugln("udpTest WriteTo %s %v", p.Name(), err)
 		return
 	}
 
+	buf := pool.Get(1024)
+	defer pool.Put(buf)
 	instance.SetReadDeadline(time.Now().Add(time.Second * 5))
-	_, _, err = instance.ReadFrom(make([]byte, 32))
+	_, _, err = instance.ReadFrom(buf)
 	if err != nil {
-		log.Debugln("udpTest %s %v", addr.RemoteAddress(), err)
+		log.Debugln("udpTest ReadFrom %s %v", p.Name(), err)
 		return
 	}
 
@@ -210,14 +220,14 @@ func (p *Proxy) udpTest(ctx context.Context, addr *C.Metadata) (delay, meanDelay
 	}
 
 	instance.SetReadDeadline(time.Now().Add(time.Second * 5))
-	_, _, err = instance.ReadFrom(make([]byte, 32))
+	_, _, err = instance.ReadFrom(buf)
 	if err != nil {
-		log.Debugln("udpTest delay %s %d", addr.RemoteAddress(), delay)
+		log.Debugln("udpTest delay %s %d", p.Name(), delay)
 		return delay, 0, nil
 	}
 
 	meanDelay = uint16(time.Since(start) / time.Millisecond / 2)
-	log.Debugln("udpTest delay %s %d %d", addr.RemoteAddress(), delay, meanDelay)
+	log.Debugln("udpTest delay %s %d %d", p.Name(), delay, meanDelay)
 	return
 }
 
