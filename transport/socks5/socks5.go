@@ -290,13 +290,13 @@ func ReadAddr(r io.Reader, b []byte) (Addr, error) {
 		}
 		domainLength := uint16(b[1])
 		_, err = io.ReadFull(r, b[2:2+domainLength+2])
-		return b[:1+1+domainLength+2], fmt.Errorf("read addr AtypDomainName %v", err)
+		return b[:1+1+domainLength+2], err
 	case AtypIPv4:
 		_, err = io.ReadFull(r, b[1:1+net.IPv4len+2])
-		return b[:1+net.IPv4len+2], fmt.Errorf("read addr AtypIPv4 %v", err)
+		return b[:1+net.IPv4len+2], err
 	case AtypIPv6:
 		_, err = io.ReadFull(r, b[1:1+net.IPv6len+2])
-		return b[:1+net.IPv6len+2], fmt.Errorf("read addr AtypIPv6 %v", err)
+		return b[:1+net.IPv6len+2], err
 	}
 
 	return nil, ErrAddressNotSupported
